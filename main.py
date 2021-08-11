@@ -44,12 +44,12 @@ def dl_gallery(target_url: str) -> None:
 
         for i in range(1, page_num+1):
             print(f"Downloading page n°{i} /{page_num}...")
-            response = s.get(f"{pattern}/{gallery_id}_{i}.jpg")
-            im = open(f"./downloads/{gallery_id}/{i}.jpg", "wb")
+            response = s.get(f"{pattern}/{i}.jpg")
+            im = open(f"./downloads/{gallery_id}/{gallery_id}_{i}.jpg", "wb")
             im.write(response.content)
             im.close()
 
-    print("Done !")
+    print(f"Download finished, the pictures are located in the ./downloads/{gallery_id}/ folder")
 
 
 def main():
