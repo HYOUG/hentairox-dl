@@ -1,5 +1,5 @@
 # HentaiRoxDL
-A simple python script that download a given gallery using the `requests` and `BeautifulSoup` modules.
+A simple python script that download a given gallery using the `requests`, `BeautifulSoup` and `tqdm` modules.
 
 ## 💾 Installation
 ```bash
