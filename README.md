@@ -8,24 +8,33 @@ git clone https://github.com/HYOUG/HentaiRoxDL.git
 or, `Code button` > `Download ZIP`
 
 ## 🔌 Requirements
-```python
+```bash
 requests==2.26.0
+tqdm==4.62.1
 beautifulsoup4==4.9.3
 ```
 
-## ▶️ Usage 
-- Start the program with Python (required) :
+## ⚙️ Usage 
 ```bash
-python main.py
+python hentairoxdl.py [-h] [-o PATH] [-m MODEL] [-p START_IDX STOP_IDX] [-l] [-i] gallery_url
 ```
-- Enter the link of the gallery you want to download.
-- Wait the program to download.
-- Enjoy the pictures in the `./downloads/(GALLERY_ID)/` folder.
+
+Argument | Value(s) | Description | Default value | Example
+------------ | ------------- | ------------- | ------------- | -------------
+gallery_url | URL | The URL from the targeted gallery page | / | https://hentairox.com/gallery/380508/
+-h, --help | / | Show this help message and exit | / | /
+-o, --output | Path | Path for the output for the downloaded content | ./downloads | C:\Users\johndoe\Downloads
+-m, --model | Filename Model | Filename model given to the downloaded pictures | {gallery_id}_{page_num} | {gallery_title} : ({page_num})
+-p, --pages | StartIndex, StopIndex | Specific page indexes to download | [0, -1] | 0 101
+-l, --log | / | Display every step of the downloading process | False | /
+-i, --info | / | Save gallery info (title, author, metadata, etc.) in a file (#info.txt) | False | /
 
 ## ⚠️ Disclaimer
-- The script isn't optimized/trustworty. The download may fail or be slow.
-- I do not encourage anybody to use HentaiRoxDL and it's code in an unfair way.
-- I assume no responsibility for any ban or other sanction in connection with the use of HentaiRoxDL
+- I do not encourage anybody to use HentaiRoxDL in an unfair way (mirroring, harvesting, dumping, etc.).
+- I do not assume responsibility for any sanction due to the use of HentaiRoxDL.
+
+## 👍 Special Thanks
+Thanks to [Peter Bowen aka pzb](https://github.com/pzb) for the user-agent list.
 
 ## 📜 License 
 [MIT](https://choosealicense.com/licenses/mit/) (2021) License protected project.
