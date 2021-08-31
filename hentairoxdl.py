@@ -3,12 +3,15 @@
 # script by "HYOUG"
 
 from argparse import ArgumentParser
-from os import makedirs
-from os.path import exists, join
+from os import makedirs, remove
+from os.path import basename, exists, join
 from random import choice
+from zipfile import ZIP_DEFLATED, ZipFile
+
 from bs4 import BeautifulSoup
-from requests import Session
+from requests_cache import CachedSession
 from tqdm import tqdm
+
 
 user_agent = {"User-Agent": choice(open("user-agents.txt", "r").read().split("\n"))}
 metadata = {
@@ -24,30 +27,31 @@ IMAGE_EXTENSIONS = ["jpg", "png", "gif"]
 FORBIDDEN_CHARS = ["<", ">", ":", "\"", "/", "\\", "|", "?", "*"]
 
 
-def dl_gallery(gallery_url: str, output:str, model:str, pages:list, log:bool, info:bool) -> None:
+def dl_gallery(gallery_url:str, output:str, model:str, pages:list, zipfile: bool or str, log:bool, info:bool) -> None:
     """
     Download the given Hentai Rox Gallery
 
     Parameters
     ----------
     gallery_url : str
-        The targeted gallery URL
+        [description]
     output : str
         [description]
-    filename_model : str
+    model : str
         [description]
-    index : str
+    pages : list
+        [description]
+    zipfile : boolorstr
         [description]
     log : bool
-        [description]   
+        [description]
     info : bool
-        [description] 
+        [description]
     """
     
     gallery_id = [i for i in gallery_url.split("/") if i != ""][-1]
-    s = Session()
+    s = CachedSession("cached_session", backend="memory")
     
-
 
     def display_log(event:str) -> None:
         if log:
@@ -87,11 +91,12 @@ def dl_gallery(gallery_url: str, output:str, model:str, pages:list, log:bool, in
     pages_num = int(page_num_node.string.split(" ")[0])
     display_log(f"Getting URL pattern...")
     first_img = soup.find("img", {"class": "lazy preloader"})
-    pattern = "/".join(first_img["data-src"].split("/")[:-1]) + "/"
+    pattern = "/".join(first_img["data-src"].split("/")[:-1]) + "/"  
 
     if info:
         display_log("Writing gallery metadata onto #info.txt...")
-        f = open(f"{output}/#info.txt", "w", encoding="utf-8")
+        fp = join(output, "#info.txt")
+        f = open(fp, "w", encoding="utf-8")
         f.write(f"Gallery name: {gallery_title}\n")
         f.write(f"URL: {gallery_url}\n")
         f.write(f"Pages: {pages_num}\n\n")
@@ -100,12 +105,16 @@ def dl_gallery(gallery_url: str, output:str, model:str, pages:list, log:bool, in
             f.write(f"* {item[0]}: {', '.join(item[1])}\n")
         f.close()
 
-    p_start = list(range(1, pages_num+1)).index(list(range(1, pages_num+1))[pages[0]])
-    p_stop = list(range(1, pages_num+1)).index(list(range(1, pages_num+1))[pages[1]])
+    if zipfile is not None:
+        zf = ZipFile(join(output, f"{zipfile}.zip"), "w", ZIP_DEFLATED)
+        zf.write(fp, basename(fp))
+        remove(fp)
+
+    p_start = list(range(pages_num)).index(list(range(pages_num))[pages[0]])
+    p_stop = list(range(pages_num)).index(list(range(pages_num))[pages[1]])
 
     bar = tqdm(
         iterable=range(p_start, p_stop),
-        initial=0,
         total=p_stop-p_start,
         desc="Downloading :",
         bar_format="{desc} |{bar}| ({n_fmt}/{total_fmt})",
@@ -125,43 +134,54 @@ def dl_gallery(gallery_url: str, output:str, model:str, pages:list, log:bool, in
                 "{gallery_title}": gallery_title,
                 "{gallery_id}": gallery_id,
                 "{page_num}": str(i),
-                "{pages_num}": str(pages_num)}
+                "{pages_num}": str((p_stop-1)-p_start)}
             filename = model
             for (var_name, var_value) in model_vars.items():
                 filename = filename.replace(var_name, var_value)
-            f = open(join(output, f"{filename}.{im_ext}"), "wb")
+            fp = join(output, f"{filename}.{im_ext}")
+            f = open(fp, "wb")
             f.write(response.content)
             f.close()
+            zf.write(fp, basename(fp))
+            remove(fp)
+    zf.close()
 
 
 def main():
     parser = ArgumentParser()
     parser.add_argument("gallery_url",
-                        help="The URL from the targeted gallery page")
+                        help="The URL from the targeted gallery page",
+                        metavar="GALLERY_URL")
     parser.add_argument("-o", "--output",
-                        metavar="PATH",
                         default="./downloads",
-                        help="Path for the output for the downloaded content")
+                        help="Path for the output for the downloaded content",
+                        metavar="PATH")
     parser.add_argument("-m", "--model",
-                        metavar="MODEL",
+                        nargs="+",
                         default="{gallery_id}_{page_num}",
-                        help="Filename model given to the downloaded pictures")
+                        help="Filename model given to the downloaded pictures",
+                        metavar="FILENAME_MODEL")
     parser.add_argument("-p", "--pages",
-                        metavar=("START_IDX", "STOP_IDX"),
-                        default=[0, -1],
                         nargs=2,
+                        default=[0, -1],
                         type=int,
-                        help="Specific page indexes to download")
+                        help="Specific page indexes to download",
+                        metavar=("START_INDEX", "STOP_INDEX"))
+    parser.add_argument("-z", "--zipfile",
+                        nargs="+",
+                        default=None,
+                        help="Archive the downloaded pictures in a zip file with the given name",
+                        metavar="ZIPFILE_NAME")           
     parser.add_argument("-l", "--log",
+                        action="store_true",
                         default=False,
-                        help="Display every step of the downloading process",
-                        action="store_true")
+                        help="Display every step of the downloading process")
     parser.add_argument("-i", "--info",
+                        action="store_true",
                         default=False,
-                        help="Save gallery info (title, author, metadata, etc.) in a file (#info.txt)",
-                        action="store_true")
+                        help="Save gallery info (title, author, metadata, etc.) in a file (#info.txt)")
     args = parser.parse_args()
-    dl_gallery(args.gallery_url, args.output, args.model, args.pages, args.log, args.info)
+    dl_gallery(args.gallery_url, args.output, ' '.join(args.model), args.pages, ' '.join(args.zipfile), args.log, args.info)
 
 
 if __name__ == "__main__":
