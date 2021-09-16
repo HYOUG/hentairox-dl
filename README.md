@@ -1,5 +1,5 @@
 # HentaiRoxDL
-A simple python script that download a given gallery using the `requests_cache`, `BeautifulSoup` and `tqdm` modules.
+A simple command line python script to download galleries from [**HentaiRox**](https://hentairox.com/) using the `requests`, `BeautifulSoup` and `tqdm` modules.
 
 ## 💾 Installation
 ```bash
@@ -11,33 +11,30 @@ or, `Code button` > `Download ZIP`
 ## 🔌 Requirements
 ```bash
 tqdm==4.62.1
-beautifulsoup4==4.9.3
-requests_cache==0.7.4
+requests==2.26.0
+colorama==0.4.4
+beautifulsoup4==4.10.0
 ```
 
 ## ⚙️ Usage 
 ```bash
-python hentairoxdl.py [-h] [-o PATH] [-m FILENAME_MODEL] [-p START_INDEX STOP_INDEX] [-l] [-i] GALLERY_URL
+python hentairoxdl.py [-h] [-o PATH] [-m FILENAME_MODEL] [-p START_INDEX STOP_INDEX] [-z ZIPFILE_NAME] [-l] [-i] GALLERY_URL [GALLERY_URL ...]
 ```
 
 Argument | Description | Default value | Example
 ------------ | ------------- | ------------- | -------------
-GALLERY_URL* | The URL from the targeted gallery page |  | https://hentairox.com/gallery/380508/
+GALLERY_URL | Targeted gallery page URL |  | https://hentairox.com/gallery/362424/
 -h, --help | Show the help message and exit |  | -h
--o, --output PATH| Path for the output for the downloaded content | ./downloads | -o C:\Users\johndoe\Downloads
--m, --model FILENAME_MODEL| Filename model given to the downloaded pictures | {gallery_id}_{page_num} | -m {gallery_title} : ({page_num})
--p, --pages START_INDEX STOP_INDEX | Specific page indexes to download | 0 -1 | -p 0 101
--l, --log | Display every step of the downloading process | False | -l
--i, --info | Save gallery info (title, author, metadata, etc.) in a file (#info.txt) | False | -i
-
-Arguments with a `*` are mandatory.
+-o, --output `PATH`| Specifies the path of the folder in which the downloaded images are saved | ./downloads | -o C:\Users\johndoe\Downloads
+-f, --filename `FILENAME_MODEL`| Format the name of the downloaded images with context variables. Available variables: gallery_name, gallery_id, pages_num, page_num. | {page_num}_{gallery_id} | -m no.{page_num}
+-p, --pages `START_INDEX` `STOP_INDEX` | Specifies the portion of the gallery to download | 0 -1 | -p 0 101
+-a, --archive `ARCHIVE_NAME` | Archive downloaded pictures in a zip file and specifies the name of it | None | -a archived_gallery
+-t, --threads `THREADS_NUM` | Specifies the number of threads that the program uses to download the gallery | 1 | -t 4 
+-m, --metadata | Backup the metadata from the gallery in a file #metadata.txt | False | -i
 
 ## ⚠️ Disclaimer
 - I do not encourage anybody to use HentaiRoxDL in an unfair way (mirroring, harvesting, dumping, etc.).
 - I do not assume responsibility for any sanction due to the use of HentaiRoxDL.
-
-## 👍 Special Thanks
-Thanks to [Peter Bowen AKA pzb](https://github.com/pzb) for the user-agent list.
 
 ## 📜 License 
 [MIT](https://choosealicense.com/licenses/mit/) (2021) License protected project.

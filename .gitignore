@@ -1,2 +1,5 @@
-# Ignore my personal TODO list
+# To-Do list
 TODO
+
+# Byte-compiled
+__pycache__/
