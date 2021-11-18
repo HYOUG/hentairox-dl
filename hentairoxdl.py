@@ -5,12 +5,13 @@
 from argparse import ArgumentParser
 from os import listdir, makedirs, remove
 from os.path import basename, exists, join
-from threading import Thread
+from threading import Lock, Thread
+from time import sleep, time
 from zipfile import ZIP_DEFLATED, ZipFile
 from bs4 import BeautifulSoup
+from colorama import Fore
 from requests import get
 from tqdm import tqdm
-from colorama import Fore
 from modules.errors import *
 
 
@@ -40,7 +41,7 @@ def dl_gallery(gallery_url:str, output:str, filename:str, pages:list,
     output : str
         Output path for the downloaded pictures, by default "./downloads"
     filename : str
-        Filename model for the downloaded pictures, by default "{gallery_id}_{page_num}}"
+        Filename model for the downloaded pictures, by default "{gallery_id}_{page_num}"
     pages : list
         Minimum and maximum page indexed for the downloaded pictures, by default [0, -1]
     archive : str or NONE_TYPE
@@ -48,7 +49,7 @@ def dl_gallery(gallery_url:str, output:str, filename:str, pages:list,
     threads : int
         Number of workers downloading pictures in parallel, by default 1
     metadata : bool
-        Save gallery metadata in a file (#metadata.txt), by default False
+        Save gallery metadata in a file (metadata.txt), by default False
 
     Raises
     ------
@@ -68,7 +69,10 @@ def dl_gallery(gallery_url:str, output:str, filename:str, pages:list,
 
     gallery_id = [i for i in gallery_url.split("/") if i != ""][-1]
     threads_list = []
-    bars_list = []
+    dl_cancelled = False
+    pbar_lock = Lock()
+    stop_lock = Lock()
+    archive_lock = Lock()
 
     if not exists(output):
         makedirs(output)
@@ -102,10 +106,17 @@ def dl_gallery(gallery_url:str, output:str, filename:str, pages:list,
     first_img = soup.find("img", {"class": "lazy preloader"})
     pattern = "/".join(first_img["data-src"].split("/")[:-1]) + "/"
 
-    print(f"\nDownloading : {Fore.LIGHTBLUE_EX}{gallery_name}{Fore.RESET}\n")
+    print(f"\nGallery : {Fore.LIGHTBLUE_EX}{gallery_name}{Fore.RESET}\n")
+
+    if archive is not None:
+        fp_archive = join(output, f"{archive}.zip")
+        if f"{archive}.zip" not in listdir(output):
+            zf = ZipFile(fp_archive, "w", ZIP_DEFLATED)
+        else:
+            zf = ZipFile(fp_archive, "a", ZIP_DEFLATED)
 
     if metadata:
-        fp = join(output, "#metadata.txt")
+        fp = join(output, "metadata.txt")
         f = open(fp, "w", encoding="utf-8")
         f.write(f"Gallery name: {gallery_name}\n")
         f.write(f"URL: {gallery_url}\n")
@@ -115,22 +126,20 @@ def dl_gallery(gallery_url:str, output:str, filename:str, pages:list,
             if len(tag_list) > 0:
                 f.write(f"* {category}: {', '.join(tag_list)}\n")
         f.close()
-
-    if archive is not None:
-        if f"{archive}.zip" not in listdir(output):
-            zf = ZipFile(join(output, f"{archive}.zip"), "w", ZIP_DEFLATED)
-        else:
-            zf = ZipFile(join(output, f"{archive}.zip"), "a", ZIP_DEFLATED)
-        if metadata:
-            zf.write(fp, basename(fp)) 
+        if archive is not None:
+            zf.write(fp, basename(fp))
             remove(fp)
 
     p_start = list(range(pages_num)).index(list(range(pages_num))[pages[0]])
     p_end = list(range(pages_num)).index(list(range(pages_num))[pages[1]])
     p_len = p_end - p_start
-    
 
-    def dl_pages(t_start, t_end, t_num):
+    dl_bar = tqdm(
+        iterable=range(p_start, p_end),
+        bar_format="Download : |{bar:30}| [{n_fmt}/{total_fmt}] ({percentage:.0f}%)",
+        ascii="_▌█")
+
+    def dl_pages(t_start, t_end):
         for i in range(t_start, t_end):
             for ext in IMAGE_EXTENSIONS:
                 response = get(f"{pattern}/{i+1}.{ext}")
@@ -141,23 +150,30 @@ def dl_gallery(gallery_url:str, output:str, filename:str, pages:list,
                 formatfound = False
             if formatfound:
                 model_vars = {
-                    "{gallery_name}": gallery_name,
-                    "{gallery_id}": gallery_id,
-                    "{page_num}": str(i),
-                    "{pages_num}": str((t_end-1)-t_start)}
-                parsed_filename = filename
-                for (var_name, var_value) in model_vars.items():
-                    parsed_filename = parsed_filename.replace(var_name, var_value)
-                fp = join(output, f"{parsed_filename}.{im_ext}")
-                f = open(fp, "wb")
-                f.write(response.content)
-                f.close()
+                    "gallery_name": gallery_name,
+                    "gallery_id": gallery_id,
+                    "page_num": str(i),
+                    "pages_num": str((t_end-1)-t_start)}
+                parsed_filename = filename.format(**model_vars)
                 if archive is not None:
-                    zf.write(fp, basename(fp))
-                    remove(fp)
-                    zf.close()
-            bars_list[t_num].update()
-
+                    with archive_lock:
+                        zf = ZipFile(fp_archive, "a")
+                        try:
+                            zf.writestr(f"{parsed_filename}.{im_ext}", response.content)
+                        except UserWarning:
+                            pass #TODO Handle error
+                        zf.close()
+                else:
+                    fp = join(output, f"{parsed_filename}.{im_ext}")
+                    f = open(fp, "wb")
+                    f.write(response.content)
+                    f.close()
+            with stop_lock:
+                if dl_cancelled:
+                    break
+                else:
+                    with pbar_lock:
+                        dl_bar.update()
 
     for i in range(threads):
         if i != threads-1:
@@ -165,21 +181,33 @@ def dl_gallery(gallery_url:str, output:str, filename:str, pages:list,
             t_end = p_start + ((p_len//threads) * (i+1))
         else:
             t_start = p_start + ((p_len//threads) * i)
-            t_end = p_start + ((p_len//threads) * (i+1)) + (p_len % threads)
-        bar = tqdm(
-            iterable=range(t_start, t_end),
-            total=t_end-t_start,
-            bar_format="Thread tn : |{bar:30}| [{n_fmt}/{total_fmt}] ~ {percentage:.0f}%".replace("tn", str(i+1)),
-            ascii=".▌█",
-            position=i)
-        bars_list.append(bar)
-        thread = Thread(target=dl_pages, args=(t_start, t_end, i))
+            t_end = p_start + ((p_len//threads) * (i+1)) + (p_len % threads)        
+        thread = Thread(target=dl_pages, args=(t_start, t_end))
         threads_list.append(thread)
         threads_list[-1].start()
-    [thread.join() for thread in threads_list]
+
+    try:
+        while True:
+            end = True
+            for thread in threads_list:
+                if thread.is_alive():
+                    end = False
+            if end:
+                break
+    except KeyboardInterrupt:
+        dl_cancelled = True
+        with pbar_lock:
+            dl_bar.close()
+        sleep(2)
+        with stop_lock:
+            print(f"\n{Fore.LIGHTRED_EX}Download cancelled{Fore.RESET}")
+        exit()
+        
 
 
 def main():
+    start = time()
+
     parser = ArgumentParser(prog="HentaiRoxDL.py",
                             epilog="Made with <3 by HYOUG")
     parser.add_argument("gallery_url",
@@ -212,11 +240,13 @@ def main():
     parser.add_argument("-m", "--metadata",
                         action="store_true",
                         default=False,
-                        help="Save the gallery's metadata into a file (#metadata.txt)")          
-  
+                        help="Save the gallery's metadata into a file (metadata.txt)")          
     args = parser.parse_args()
+
     for url in args.gallery_url:
         dl_gallery(url, args.output, args.filename, args.pages, args.archive, args.threads, args.metadata)
+
+    print(f"\n{Fore.LIGHTGREEN_EX}Download finished in {(time()-start):.2f} seconds{Fore.RESET}")
 
 
 if __name__ == "__main__":

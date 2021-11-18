@@ -3,4 +3,5 @@ class Error(Exception):
     pass
 
 class InvalidURL(Error):
+    """The given URL is invalid, check the validity and the spelling of provided URL """
     pass
