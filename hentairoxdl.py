@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# script by "HYOUG"
+# script by HYOUG
 
 from argparse import ArgumentParser
 from os import listdir, makedirs, remove
@@ -12,8 +12,11 @@ from bs4 import BeautifulSoup
 from colorama import Fore
 from requests import get
 from tqdm import tqdm
-from modules.errors import *
+from misc.errors import *
 
+IMAGE_EXTENSIONS = ["jpg", "png", "gif"]
+FORBIDDEN_CHARS = ["<", ">", ":", "\"", "/", "\\", "|", "?", "*"]
+NONE_TYPE = type(None)
 
 metadata_dict = {
     "parodies": [],
@@ -24,9 +27,14 @@ metadata_dict = {
     "languages": [],
     "category": []
 }
-IMAGE_EXTENSIONS = ["jpg", "png", "gif"]
-FORBIDDEN_CHARS = ["<", ">", ":", "\"", "/", "\\", "|", "?", "*"]
-NONE_TYPE = type(None)
+
+model_vars = {
+    "gallery_name": "",
+    "gallery_id": "",
+    "page_num": "",
+    "pages_num": ""
+}
+
 
 
 def dl_gallery(gallery_url:str, output:str, filename:str, pages:list,
@@ -57,15 +65,15 @@ def dl_gallery(gallery_url:str, output:str, filename:str, pages:list,
         The gallery URL given is invalid
     """
 
-    assert isinstance(gallery_url, str), f"Invalid data format given for the \"gallery_url\" argument : {type(gallery_url)} (instead of str)"
-    assert isinstance(output, str), f"Invalid data format given for the \"output\" argument : {type(output)} (instead of str)"
-    assert isinstance(filename, str), f"Invalid data format given for the \"_filename\" argument : {type(filename)} (instead of str)"
-    assert isinstance(pages, list), f"Invalid data format given for the \"pages\" argument : {type(pages)} (instead of list)"
-    assert isinstance(archive, (NONE_TYPE, str)), f"Invalid data format given for the \"archive\" argument : {type(archive)} (instead of NONE_TYPE or str)"
-    assert isinstance(threads, int), f"Invalid data format given for the \"threads\" argument : {type(threads)} (instead of int)"
-    assert isinstance(metadata, bool), f"Invalid data format given for the \"metadata\" argument : {type(metadata)} (instead of bool)"
-    assert gallery_url.startswith("https://hentairox.com/gallery/"), f"Invalid gallery URL given : {gallery_url}"
-
+    assert isinstance(gallery_url, str), f"Invalid data format given for the 'gallery_url' argument : {type(gallery_url)} (instead of str)"
+    assert isinstance(output, str), f"Invalid data format given for the 'output' argument : {type(output)} (instead of str)"
+    assert isinstance(filename, str), f"Invalid data format given for the '_filename' argument : {type(filename)} (instead of str)"
+    assert isinstance(pages, list), f"Invalid data format given for the 'pages' argument : {type(pages)} (instead of list)"
+    assert isinstance(archive, (NONE_TYPE, str)), f"Invalid data format given for the 'archive' argument : {type(archive)} (instead of NONE_TYPE or str)"
+    assert isinstance(threads, int), f"Invalid data format given for the 'threads' argument : {type(threads)} (instead of int)"
+    assert isinstance(metadata, bool), f"Invalid data format given for the 'metadata' argument : {type(metadata)} (instead of bool)"
+    assert gallery_url.startswith("https://hentairox.com/gallery/") or gallery_url.startswith("https://www.hentairox.com/gallery/"), f"Invalid gallery URL given : {gallery_url}"
+    assert True not in [el in filename.format(**model_vars) for el in FORBIDDEN_CHARS], f"Invalid filename given, it contains forbiden characters : {filename}"
 
     gallery_id = [i for i in gallery_url.split("/") if i != ""][-1]
     threads_list = []
@@ -73,6 +81,7 @@ def dl_gallery(gallery_url:str, output:str, filename:str, pages:list,
     pbar_lock = Lock()
     stop_lock = Lock()
     archive_lock = Lock()
+    
 
     if not exists(output):
         makedirs(output)
@@ -139,8 +148,8 @@ def dl_gallery(gallery_url:str, output:str, filename:str, pages:list,
         bar_format="Download : |{bar:30}| [{n_fmt}/{total_fmt}] ({percentage:.0f}%)",
         ascii="_▌█")
 
-    def dl_pages(t_start, t_end):
-        for i in range(t_start, t_end):
+    def dl_pages(start_index, end_index):
+        for i in range(start_index, end_index):
             for ext in IMAGE_EXTENSIONS:
                 response = get(f"{pattern}/{i+1}.{ext}")
                 if response.status_code == 200:
@@ -149,11 +158,10 @@ def dl_gallery(gallery_url:str, output:str, filename:str, pages:list,
                     break
                 formatfound = False
             if formatfound:
-                model_vars = {
-                    "gallery_name": gallery_name,
-                    "gallery_id": gallery_id,
-                    "page_num": str(i),
-                    "pages_num": str((t_end-1)-t_start)}
+                model_vars["gallery_name"] = gallery_name
+                model_vars["gallery_id"] = gallery_id
+                model_vars["page_num"] = str(i)
+                model_vars["pages_num"] = str((end_index-1)-start_index)
                 parsed_filename = filename.format(**model_vars)
                 if archive is not None:
                     with archive_lock:
@@ -162,10 +170,15 @@ def dl_gallery(gallery_url:str, output:str, filename:str, pages:list,
                             zf.writestr(f"{parsed_filename}.{im_ext}", response.content)
                         except UserWarning:
                             pass #TODO Handle error
+                        except OSError:
+                            pass #TODO Handle error
                         zf.close()
                 else:
                     fp = join(output, f"{parsed_filename}.{im_ext}")
-                    f = open(fp, "wb")
+                    try:
+                        f = open(fp, "wb")
+                    except OSError:
+                            pass #TODO Handle error
                     f.write(response.content)
                     f.close()
             with stop_lock:
@@ -232,11 +245,11 @@ def main():
                         default=None,
                         help="Archive the downloaded pictures in a zip file with the given name",
                         metavar="ARCHIVE_NAME")
-    parser.add_argument("-t", "--threads",
+    parser.add_argument("-t", "--threads-num",
                         default=1,
                         type=int,
                         help="Downloads the targeted pictures in parallel with N threads. N being the provided argument",
-                        metavar="N_WORKERS")
+                        metavar="WORKERS_NUM")
     parser.add_argument("-m", "--metadata",
                         action="store_true",
                         default=False,
@@ -246,7 +259,7 @@ def main():
     for url in args.gallery_url:
         dl_gallery(url, args.output, args.filename, args.pages, args.archive, args.threads, args.metadata)
 
-    print(f"\n{Fore.LIGHTGREEN_EX}Download finished in {(time()-start):.2f} seconds{Fore.RESET}")
+    print(f"\n{Fore.LIGHTGREEN_EX}Download finished in {(time()-start):.0f} seconds{Fore.RESET}")
 
 
 if __name__ == "__main__":
