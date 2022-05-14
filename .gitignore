@@ -3,3 +3,6 @@ TODO
 
 # Byte-compiled
 __pycache__/
+
+# Sandbox/test file
+test.py
