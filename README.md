@@ -28,49 +28,30 @@ tqdm==4.62.3
 ⚙️ Usage
 ============
 ```console
-# Download a gallery
-$ python3 hentairoxdl.py [OPTIONS] GALLERY_URL
+$ python hentairoxdl.py --help
+usage: HentairoxDL.py [-h] [-o PATH] [-f FILENAME] [-p PAGE_RANGES]
+                      [-a ARCHIVE_NAME] [-m] [-v] [-nc] [-q]
+                      GALLERY_URL
+
+Download content from an Hentairox gallery
+
+positional arguments:
+  GALLERY_URL           The URL from the targeted gallery page
+
+options:
+  -h, --help                 Dhow this help message and exit
+  -o, --output PATH          Set the output path
+  -f, --filename FILENAME    Set the downloaded pictures filename template
+  -p, --pages PAGE_RANGES    Set the page indexes range to download
+  -a, --archive ARCHIVE_NAME Archive the downloaded pictures
+  -m, --metadata             Save the gallery metadata into a text file
+  -v, --verbose              Increase output verbosity
+  -nc, --no-color            Disable color display
+  -q, --quiet                Quiet (no output)
+
+Made with <3 by HYOUG
+
 ```
-
-**GALLERY_URL**  
-The HentaiRox gallery to download.
-
-**-h, --help**  
-Show this help message and exit.
-
-**-o, --output `PATH`**  
-Specify the path for the downloaded pictures.  
-Default PATH="./downloads/{gallery_name}/"  
-E.g: -o ./saved/{gallery_id}-{gallery\_name}
-
-**-f, --filename `FILENAME`**  
-Specify the filename model given to the downloaded pictures.  
-Default FILENAME="{gallery_id}\_{page_num}"  
-E.g: -f number\_{page_num}
-
-**-p, --pages `PAGE_RANGES`**  
-Specify the page indexes range to download.  
-Default PAGES_RANGES=":"  
-E.g: -p 0:100/5
-
-**-a, --archive `ARCHIVE_NAME`**  
-Archive the downloaded pictures in a .zip file with the given name.  
-E.g: -a personal_archive
-
-**-m, --metadata**  
-Save the gallery's metadata into a file (metadata.txt).
-
-**-nc, --no-color**  
-Disable color display.
-
-**-v, --verbose**  
-Increase output verbosity.
-
-**-q, --quiet**  
-Run the download without output.
-
-> Avaible templates : `{gallery_id}`, `{gallery_name}`, `{pages_num}`, `{page_num}`.  
-> The `{page_num}` value is only working for the `FILENAME` argument. 
 
 ⚠️ Disclaimer
 ============
@@ -83,6 +64,7 @@ Run the download without output.
 - [ ] Precise exception handling   
 - [ ] DOCSTRINGS  
 - [ ] Advanced template features
+- [ ] Detailed usage help
 
 📜 License
 ============

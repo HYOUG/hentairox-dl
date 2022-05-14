@@ -9,7 +9,7 @@ from utils.page_parser import *
 
 def main():
     parser = ArgumentParser(prog="HentairoxDL.py",
-                            description="Download the pictures of a Hentairox gallery",
+                            description="Download content from an Hentairox gallery",
                             epilog="Made with <3 by HYOUG")
     parser.add_argument("gallery_url",
                         help="The URL from the targeted gallery page",
@@ -21,12 +21,12 @@ def main():
                         dest="output")
     parser.add_argument("-f", "--filename",
                         default="{gallery_id}_{page_num}",
-                        help="Set the downloaded pictures filename",
+                        help="Set the downloaded pictures filename template",
                         metavar="FILENAME",
                         dest="filename")
     parser.add_argument("-p", "--pages",
                         default=":",
-                        help="Set the page indexes range to download",
+                        help="Set the pages indexes range to download",
                         metavar="PAGE_RANGES",
                         dest="pages")
     parser.add_argument("-a", "--archive",
@@ -37,7 +37,7 @@ def main():
     parser.add_argument("-m", "--metadata",
                         action="store_true",
                         default=False,
-                        help="Save the gallery's metadata (metadata.txt)")
+                        help="Save the gallery's metadata into a text file")
     parser.add_argument("-v", "--verbose",
                         action="store_true",
                         default=False,
